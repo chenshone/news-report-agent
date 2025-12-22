@@ -1,13 +1,15 @@
 """专家委员会 SubAgent
 
-封装完整的四阶段专家协作流程：
-1. 独立分析 - 各专家并行分析
+封装专家协作流程（阶段1由外部提供）：
+1. 独立分析 - 各专家输出已预先提供
 2. 交叉评审 - 专家互评
 3. 共识讨论 - 处理分歧
 4. 主管综合 - 最终裁决
 """
 
 import asyncio
+import json
+import re
 from typing import Any, Dict, List
 
 from deepagents.middleware.subagents import CompiledSubAgent
@@ -15,37 +17,82 @@ from langchain_core.messages import AIMessage
 from langchain_core.runnables import RunnableConfig, RunnableLambda
 
 from ...config import AppConfig, create_chat_model
+from ...prompts.experts import (
+    SUMMARIZER_PROMPT,
+    FACT_CHECKER_PROMPT,
+    RESEARCHER_PROMPT,
+    IMPACT_ASSESSOR_PROMPT,
+    EXPERT_SUPERVISOR_PROMPT,
+)
 from ..council import CROSS_REVIEW_MATRIX, EXPERT_DESCRIPTIONS, generate_cross_review_prompt
 
 
-# 专家系统提示词（简化版，避免循环导入）
+# 专家系统提示词（复用 experts.py 中的原始 prompt，避免循环导入）
 _EXPERT_PROMPTS = {
-    "summarizer": """你是摘要专家。提取新闻的核心要点，生成结构化摘要。
-重点：识别关键事实、主要人物、核心事件、时间线。
-输出JSON格式：{key_points: [...], entities: [...], timeline: [...]}""",
-
-    "fact_checker": """你是事实核查专家。验证内容中的关键声明是否可靠。
-重点：识别可验证的事实声明，评估来源可靠性，交叉验证关键信息。
-输出JSON格式：{claims: [{claim, verdict, confidence, sources}...]}""",
-
-    "researcher": """你是背景研究专家。补充相关历史背景和上下文信息。
-重点：关联历史事件，识别关键人物背景，提供行业/领域上下文。
-输出JSON格式：{background: {...}, related_events: [...], context: {...}}""",
-
-    "impact_assessor": """你是影响评估专家。评估短期和长期影响，预测发展趋势。
-重点：分析直接影响、间接影响、潜在风险、发展趋势。
-输出JSON格式：{short_term: [...], long_term: [...], risks: [...], trends: [...]}""",
-
-    "expert_supervisor": """你是专家委员会主席。综合各专家分析，做出最终裁决。
-职责：评估各专家分析质量，协调分歧，整合最终结论。""",
+    "summarizer": SUMMARIZER_PROMPT,
+    "fact_checker": FACT_CHECKER_PROMPT,
+    "researcher": RESEARCHER_PROMPT,
+    "impact_assessor": IMPACT_ASSESSOR_PROMPT,
+    "expert_supervisor": EXPERT_SUPERVISOR_PROMPT,
 }
+
+_EXPECTED_EXPERTS = ("summarizer", "fact_checker", "researcher", "impact_assessor")
+
+
+def _parse_json_payload(raw: str) -> Dict[str, Any] | None:
+    candidates: list[str] = []
+    stripped = raw.strip()
+    if stripped.startswith("{") and stripped.endswith("}"):
+        candidates.append(stripped)
+
+    for match in re.finditer(r"```(?:json)?\n(.*?)```", raw, re.S):
+        candidates.append(match.group(1).strip())
+
+    for candidate in candidates:
+        try:
+            payload = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            return payload
+    return None
+
+
+def _extract_expert_payload(raw: str) -> tuple[str, str, Dict[str, str]] | None:
+    payload = _parse_json_payload(raw)
+    if not payload:
+        return None
+
+    expert_outputs = payload.get("expert_outputs")
+    if expert_outputs is None:
+        expert_outputs = {
+            key: payload.get(key)
+            for key in _EXPECTED_EXPERTS
+            if payload.get(key)
+        }
+
+    if not isinstance(expert_outputs, dict) or not expert_outputs:
+        return None
+
+    normalized_outputs = {
+        key: str(value)
+        for key, value in expert_outputs.items()
+        if value is not None
+    }
+
+    if not normalized_outputs:
+        return None
+
+    task = payload.get("task") or payload.get("analysis_task") or "执行专家委员会分析"
+    context = payload.get("context") or payload.get("news_pack") or payload.get("input") or ""
+    return task, context, normalized_outputs
 
 
 class ExpertCouncilRunner:
     """
     专家委员会执行器
     
-    封装四阶段流程的完整执行逻辑。
+    封装专家评审与裁决流程的执行逻辑（独立分析由外部提供）。
     """
     
     def __init__(self, config: AppConfig):
@@ -61,17 +108,32 @@ class ExpertCouncilRunner:
             "expert_supervisor": create_chat_model(config.model_for_role("master"), config),
         }
     
-    async def run_council(self, task: str, context: str) -> str:
-        """执行完整的四阶段专家委员会流程"""
+    async def run_council(
+        self,
+        task: str,
+        context: str,
+        expert_outputs: Dict[str, str],
+    ) -> str:
+        """执行专家委员会流程（阶段1输出由外部提供）"""
+        if not expert_outputs:
+            return "未提供专家输出，无法进行交叉评审。"
+
         report_parts = []
         report_parts.append("# 🎭 专家委员会分析报告\n")
         report_parts.append(f"**分析任务**: {task}\n")
         
-        # 阶段 1: 独立分析
-        report_parts.append("\n---\n## 阶段 1: 独立分析\n")
-        expert_outputs = await self._stage1_independent_analysis(task, context)
-        
-        for expert, output in expert_outputs.items():
+        # 阶段 1: 独立分析（已提供）
+        report_parts.append("\n---\n## 阶段 1: 独立分析（已提供）\n")
+        missing_experts = [
+            expert for expert in _EXPECTED_EXPERTS if expert not in expert_outputs
+        ]
+        if missing_experts:
+            report_parts.append(f"⚠️ 缺少专家输出: {', '.join(missing_experts)}\n")
+
+        for expert in _EXPECTED_EXPERTS:
+            if expert not in expert_outputs:
+                continue
+            output = expert_outputs[expert]
             preview = output[:500] + "..." if len(output) > 500 else output
             report_parts.append(f"\n### {expert}\n{preview}\n")
         
@@ -108,30 +170,6 @@ class ExpertCouncilRunner:
         report_parts.append(final_synthesis)
         
         return "\n".join(report_parts)
-    
-    async def _stage1_independent_analysis(
-        self, task: str, context: str
-    ) -> Dict[str, str]:
-        """阶段1: 各专家独立分析"""
-        experts = ["summarizer", "fact_checker", "researcher", "impact_assessor"]
-        
-        async def analyze(expert: str) -> tuple[str, str]:
-            model = self.expert_models[expert]
-            system_prompt = _EXPERT_PROMPTS[expert]
-            
-            messages = [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"请分析以下内容:\n\n任务: {task}\n\n内容:\n{context}"}
-            ]
-            
-            try:
-                response = await model.ainvoke(messages)
-                return expert, response.content
-            except Exception as e:
-                return expert, f"分析失败: {str(e)}"
-        
-        results = await asyncio.gather(*[analyze(expert) for expert in experts])
-        return dict(results)
     
     async def _stage2_cross_review(
         self, expert_outputs: Dict[str, str], context: str
@@ -364,13 +402,44 @@ def create_council(config: AppConfig) -> CompiledSubAgent:
         if not messages:
             return {"messages": [AIMessage(content="未提供分析任务")]}
         
-        last_message = messages[-1]
-        task_content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+        expert_outputs = state.get("expert_outputs")
+        task = state.get("task") or state.get("analysis_task") or "执行专家委员会分析"
+        context = state.get("context") or state.get("news_pack") or ""
+
+        if isinstance(expert_outputs, dict):
+            expert_outputs = {
+                key: str(value)
+                for key, value in expert_outputs.items()
+                if value is not None
+            }
+        else:
+            expert_outputs = None
+
+        if not expert_outputs:
+            last_message = messages[-1]
+            task_content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+            payload = _extract_expert_payload(task_content)
+            if not payload:
+                missing_hint = "、".join(_EXPECTED_EXPERTS)
+                return {
+                    "messages": [
+                        *messages,
+                        AIMessage(
+                            content=(
+                                "未提供专家输出，无法进行交叉评审。请传入 JSON，包含 task/context "
+                                f"以及 expert_outputs（{missing_hint}）。"
+                            )
+                        ),
+                    ]
+                }
+
+            task, context, expert_outputs = payload
         
         try:
             result = asyncio.run(runner.run_council(
-                task="执行专家委员会分析",
-                context=task_content,
+                task=task,
+                context=context,
+                expert_outputs=expert_outputs,
             ))
         except Exception as e:
             result = f"专家委员会执行失败: {str(e)}"
@@ -388,13 +457,44 @@ def create_council(config: AppConfig) -> CompiledSubAgent:
         if not messages:
             return {"messages": [AIMessage(content="未提供分析任务")]}
         
-        last_message = messages[-1]
-        task_content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+        expert_outputs = state.get("expert_outputs")
+        task = state.get("task") or state.get("analysis_task") or "执行专家委员会分析"
+        context = state.get("context") or state.get("news_pack") or ""
+
+        if isinstance(expert_outputs, dict):
+            expert_outputs = {
+                key: str(value)
+                for key, value in expert_outputs.items()
+                if value is not None
+            }
+        else:
+            expert_outputs = None
+
+        if not expert_outputs:
+            last_message = messages[-1]
+            task_content = last_message.content if hasattr(last_message, 'content') else str(last_message)
+            payload = _extract_expert_payload(task_content)
+            if not payload:
+                missing_hint = "、".join(_EXPECTED_EXPERTS)
+                return {
+                    "messages": [
+                        *messages,
+                        AIMessage(
+                            content=(
+                                "未提供专家输出，无法进行交叉评审。请传入 JSON，包含 task/context "
+                                f"以及 expert_outputs（{missing_hint}）。"
+                            )
+                        ),
+                    ]
+                }
+
+            task, context, expert_outputs = payload
         
         try:
             result = await runner.run_council(
-                task="执行专家委员会分析",
-                context=task_content,
+                task=task,
+                context=context,
+                expert_outputs=expert_outputs,
             )
         except Exception as e:
             result = f"专家委员会执行失败: {str(e)}"
@@ -410,10 +510,12 @@ def create_council(config: AppConfig) -> CompiledSubAgent:
     
     return CompiledSubAgent(
         name="expert_council",
-        description="执行完整的四阶段专家协作流程（独立分析→交叉评审→共识讨论→主管综合）。调用此 agent 会自动协调所有专家完成深度分析。",
+        description=(
+            "基于已有专家输出执行交叉评审→共识讨论→主管综合。"
+            "调用前需提供 summarizer/fact_checker/researcher/impact_assessor 输出。"
+        ),
         runnable=runnable,
     )
 
 
 __all__ = ["create_council", "ExpertCouncilRunner"]
-

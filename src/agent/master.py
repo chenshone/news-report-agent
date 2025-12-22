@@ -26,6 +26,7 @@ def create_news_agent(
     model_override: Optional[BaseChatModel] = None,
     current_datetime: Optional[datetime] = None,
     use_structured_output: bool = True,
+    include_direct_experts: bool = True,
     **kwargs: Any,
 ) -> Any:
     """
@@ -44,6 +45,9 @@ def create_news_agent(
         current_datetime: Current date and time. If None, uses datetime.now().
         use_structured_output: Whether to use Pydantic-based structured output
             for expert subagents. Defaults to True (recommended).
+        include_direct_experts: Whether to mount single expert subagents
+            (summarizer/fact_checker/researcher/impact_assessor/supervisor).
+            Defaults to True to allow pre-analysis before expert_council.
         **kwargs: Additional arguments passed to create_deep_agent.
         
     Returns:
@@ -81,15 +85,19 @@ def create_news_agent(
         # 评估
         evaluate_credibility,
         evaluate_relevance,
-        # 注：四阶段专家协作流程已封装在 expert_council SubAgent 中
-        # 使用 task("expert_council", "分析任务...") 调用
+        # 注：expert_council 仅负责互评/共识/裁决，需先产出专家独立分析
+        # 使用 task("summarizer"/"fact_checker"/"researcher"/"impact_assessor") 后再 task("expert_council", ...)
     ]
     
     if additional_tools:
         tools.extend(additional_tools)
     
     # Get expert subagent configurations
-    subagent_configs = get_subagent_configs(config, use_structured_output=use_structured_output)
+    subagent_configs = get_subagent_configs(
+        config,
+        use_structured_output=use_structured_output,
+        include_direct_experts=include_direct_experts,
+    )
     
     # Format datetime information for the system prompt
     datetime_info = format_datetime_context(current_datetime)
@@ -201,4 +209,3 @@ __all__ = [
     "create_news_agent",
     "create_news_agent_with_checkpointing",
 ]
-

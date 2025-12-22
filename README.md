@@ -4,7 +4,7 @@
 
 ## 功能亮点
 - **四大 Agentic 范式**：规划（write_todos）、反思检查点、工具调用、专家协作。
-- **多专家协作**：查询规划、摘要、事实核查、背景研究、影响评估、专家主管，另有一键触发的 `expert_council` 四阶段流程（独立分析→交叉评审→共识讨论→主管裁决）。
+- **多专家协作**：查询规划、摘要、事实核查、背景研究、影响评估、专家主管；`expert_council` 负责交叉评审→共识讨论→主管裁决（需先由专家完成独立分析）。
 - **结构化输出**：关键子 Agent 使用 Pydantic schema（`src/schemas/outputs.py`）确保结果可解析，可选纯文本模式。
 - **工具链**：Tavily 搜索、网页抓取（httpx+bs4）、可信度/相关性评估（A/B/C/D 等级制）。
 - **运行体验**：CLI 支持持久化 checkpoint、实时可视化追踪（HTML/JSON 导出）、自定义输出路径。
@@ -81,7 +81,7 @@ ag_result = agent_ckpt.invoke({"messages": [{"role": "user", "content": "复盘�
   - `researcher`（使用 `internet_search`）
   - `impact_assessor`（`ImpactAssessorOutput`）
   - `expert_supervisor`（`SupervisorOutput`）
-  - `expert_council`（封装四阶段协作，全流程自动输出报告）
+  - `expert_council`（接收专家输出，执行交叉评审→共识讨论→主管裁决）
 - **交叉评审矩阵**：`src/agent/council/matrix.py` 定义 reviewer/被评审者关系与维度。
 - **工具**（`src/tools/`）：`internet_search`(Tavily)、`fetch_page`/`fetch_page_async`、`evaluate_credibility`、`evaluate_relevance`（A/B/C/D）。
 - **提示词与模板**：`src/prompts/` 存放系统/专家 prompt；`src/utils/templates.py` 生成 Markdown 报告与终端输出。
@@ -134,7 +134,7 @@ news-report-agent/
 - `docs/PROJECT_GUIDE.md`：当前项目解读（建议从这里开始）
 - `docs/reference/AGENT_FLOW.md`：端到端运行流程
 - `docs/reference/DATETIME_CONTEXT.md`：时间上下文注入规则
-- `docs/EXPERT_COUNCIL_DESIGN.md`：四阶段专家协作机制
+- `docs/EXPERT_COUNCIL_DESIGN.md`：专家委员会机制（先专家分析，再 council 裁决）
 - `docs/archive/`：历史阶段/旧设计文档（可能过时）
 - `AGENTS.md`：贡献者指南与提交规范
 - `TESTING_GUIDE.md`：测试策略与示例

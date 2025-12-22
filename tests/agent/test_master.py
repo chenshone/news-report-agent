@@ -5,6 +5,15 @@ import pytest
 deepagents = pytest.importorskip("deepagents")
 
 
+def _invoke_or_skip(agent, payload):
+    from openai import APIConnectionError, APITimeoutError, AuthenticationError, NotFoundError
+
+    try:
+        return agent.invoke(payload)
+    except (NotFoundError, APIConnectionError, APITimeoutError, AuthenticationError) as exc:
+        pytest.skip(f"LLM provider unavailable: {exc}")
+
+
 def test_create_news_agent_basic(skip_if_no_api_key):
     """Integration test: basic agent creation with real API keys."""
     from src.agent import create_news_agent
@@ -23,7 +32,7 @@ def test_create_news_agent_basic(skip_if_no_api_key):
     assert hasattr(agent, "invoke")
     
     # Try a simple invoke to verify it really works
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [{"role": "user", "content": "你好"}]
     })
     
@@ -47,7 +56,7 @@ def test_create_news_agent_with_model_override(skip_if_no_api_key):
     assert agent is not None
     
     # Verify it can respond (higher temperature for creative response)
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [{"role": "user", "content": "说个笑话"}]
     })
     
@@ -64,21 +73,24 @@ def test_create_news_agent_with_custom_config(skip_if_no_api_key):
     # Load base config to get provider info
     base_config = load_settings()
     provider = base_config.model_map["master"].provider
+    model_map = dict(base_config.model_map)
     
     # Create custom config with real API keys
+    model_map["master"] = ModelConfig(
+        model="gpt-4o-mini",
+        provider=provider,
+        temperature=0.2,
+    )
+
     config = AppConfig(
         openai_api_key=os.getenv("OPENAI_API_KEY"),
         azure_openai_api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         azure_openai_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
         azure_openai_deployment_name=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+        google_api_key=base_config.google_api_key,
+        gemini_model=base_config.gemini_model,
         tavily_api_key=os.getenv("TAVILY_API_KEY"),
-        model_map={
-            "master": ModelConfig(
-                model="gpt-4o-mini",
-                provider=provider,
-                temperature=0.2,
-            )
-        },
+        model_map=model_map,
     )
     
     # Create agent with custom config
@@ -87,7 +99,7 @@ def test_create_news_agent_with_custom_config(skip_if_no_api_key):
     assert agent is not None
     
     # Verify it works
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [{"role": "user", "content": "测试"}]
     })
     assert result is not None
@@ -117,7 +129,7 @@ def test_create_news_agent_with_additional_tools(skip_if_no_api_key):
     assert agent is not None
     
     # Verify basic functionality
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [{"role": "user", "content": "你好"}]
     })
     assert result is not None
@@ -138,7 +150,7 @@ def test_agent_has_required_tools(skip_if_no_api_key):
     assert hasattr(agent, "invoke")
     
     # Verify agent can respond
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [{"role": "user", "content": "测试工具注册"}]
     })
     assert result is not None
@@ -173,7 +185,7 @@ def test_agent_simple_invoke_integration(skip_if_no_api_key):
     agent = create_news_agent(model_override=model)
     
     # Simple test query - ask for planning steps
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [
             {"role": "user", "content": "列出分析科技热点需要的步骤"}
         ]
@@ -215,7 +227,7 @@ def test_create_news_agent_with_chat_model_instance(skip_if_no_api_key):
     assert hasattr(agent, "invoke")
     
     # Verify it works with max_tokens limit
-    result = agent.invoke({
+    result = _invoke_or_skip(agent, {
         "messages": [{"role": "user", "content": "简单回答：1+1=?"}]
     })
     
@@ -238,7 +250,7 @@ def test_agent_azure_config(skip_if_no_api_key):
         assert agent is not None
         
         # Verify it works
-        result = agent.invoke({
+        result = _invoke_or_skip(agent, {
             "messages": [{"role": "user", "content": "测试 Azure 配置"}]
         })
         assert result is not None
@@ -251,7 +263,7 @@ def test_agent_azure_config(skip_if_no_api_key):
         assert agent is not None
         
         # Verify it works
-        result = agent.invoke({
+        result = _invoke_or_skip(agent, {
             "messages": [{"role": "user", "content": "测试 OpenAI 配置"}]
         })
         assert result is not None
@@ -260,4 +272,3 @@ def test_agent_azure_config(skip_if_no_api_key):
         print("\n=== Using OpenAI ===")
     
     print(f"Provider: {config.model_map['master'].provider}")
-
