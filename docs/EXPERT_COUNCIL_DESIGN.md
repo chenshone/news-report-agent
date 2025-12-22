@@ -271,5 +271,4 @@ print(session.discussions)      # 讨论记录
 ## 参考资料
 
 - [LLM Council GitHub](https://github.com/karpathy/llm-council)
-- [Andrej Karpathy 的 LLM Council 项目深度解析](../llm-council.md)
-
+- [Andrej Karpathy 的 LLM Council 项目深度解析](background/llm-council.md)
