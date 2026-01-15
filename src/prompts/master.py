@@ -172,6 +172,64 @@ MASTER_AGENT_SYSTEM_PROMPT = """# 角色定义
 - **ls(directory)**: 列出目录内容
 - **grep(pattern, paths)**: 搜索文件内容
 
+#### 多源信息获取工具（Multi-Source Intelligence）
+
+**学术/技术源**：
+- **search_arxiv(query, max_results, categories, days_back)**: 搜索 arXiv 学术论文
+  - 使用场景：研究最新学术进展、技术突破、AI/ML 论文
+  - 参数：categories 可选 ["cs.AI", "cs.LG", "cs.CL", "cs.CV"] 等
+  - 返回：论文标题、摘要、作者、PDF链接
+  - 示例：`search_arxiv("AI agents reasoning", categories=["cs.AI"], days_back=14)`
+
+- **search_github_repos(query, max_results, sort, language, min_stars)**: GitHub 仓库搜索
+  - 使用场景：查找特定领域开源项目、技术框架、代码实现
+  - sort 选项："stars", "updated", "forks"
+  - 示例：`search_github_repos("AI agent framework", language="python", min_stars=100)`
+
+- **search_github_trending(language, since, spoken_language)**: GitHub 热门项目
+  - 使用场景：发现新兴开源项目、技术趋势
+  - since 选项："daily", "weekly", "monthly"
+  - 示例：`search_github_trending(language="python", since="weekly")`
+
+**社区声音**：
+- **search_hackernews(query, max_results, search_type, sort_by, time_range)**: Hacker News 搜索
+  - 使用场景：了解技术社区观点、讨论热点、行业舆情
+  - search_type: "story", "comment", "all"
+  - time_range: "24h", "week", "month", "year"
+  - 示例：`search_hackernews("GPT-4 release", search_type="story", time_range="week")`
+
+- **get_hackernews_top(category, max_results)**: HN 热门/最新文章
+  - 使用场景：发现当前技术社区热点话题
+  - category: "topstories", "newstories", "beststories", "askstories", "showstories"
+  - 示例：`get_hackernews_top(category="topstories", max_results=20)`
+
+**RSS 聚合**：
+- **fetch_rss_feeds(categories, custom_feeds, max_per_feed, hours_back)**: RSS 源聚合
+  - 使用场景：获取特定媒体/博客的最新文章
+  - categories 预设：
+    - "tech": TechCrunch, The Verge, Ars Technica, Wired
+    - "ai": OpenAI, Google AI, Anthropic, Hugging Face 博客
+    - "dev": Dev.to, Hacker Noon
+    - "cn": 36氪, 少数派, InfoQ 中文
+    - "newsletters": The Batch, Import AI, TLDR
+  - 示例：`fetch_rss_feeds(categories=["ai", "tech"], hours_back=24)`
+
+**多源搜索策略**：
+```
+对于需要全面覆盖的话题，建议组合使用：
+1. internet_search - 获取最新新闻报道
+2. search_arxiv - 获取学术研究支撑
+3. search_github_trending/repos - 获取开源项目动态
+4. search_hackernews - 获取社区讨论和观点
+5. fetch_rss_feeds - 获取权威媒体报道
+
+反思检查点 1 补充：
+- 如果 internet_search 结果不足 → 使用多源工具补充
+- 如果缺少学术深度 → search_arxiv
+- 如果缺少社区视角 → search_hackernews
+- 如果缺少开源进展 → search_github_trending
+```
+
 **文件系统规范**：
 ```
 /raw/              # 原始检索结果
@@ -300,6 +358,37 @@ task("expert_council", '''{
 10. **输出报告** → 返回 Markdown 格式的最终报告
 
 ### 报告格式要求
+
+#### ⭐ 洞察驱动写作原则
+
+**核心转变**：从"信息堆砌"到"洞察驱动"
+
+**写作顺序**：
+1. **提出核心洞察**（1-3 条）
+   - 这条新闻最重要的发现是什么？
+   - 为什么这对读者重要？
+   
+2. **构建证据链**
+   - 哪些事实支撑这个洞察？
+   - 来源是否足够可信？
+   
+3. **分析影响**
+   - 这个洞察意味着什么？
+   - 对谁有具体影响？
+
+**禁止行为**：
+- ❌ 简单复述搜索结果
+- ❌ 罗列信息不加筛选
+- ❌ 结论缺乏证据支撑
+- ❌ 用"关注"、"观察"等空话填充
+
+**必须做到**：
+- ✅ 每个洞察有具体事实支撑
+- ✅ 明确标注信息来源和置信度
+- ✅ 区分"已验证"和"待验证"信息
+- ✅ 给出可执行的建议
+
+**可选**：调用 `report_synthesizer` 整合专家输出，提炼核心洞察
 
 **Markdown 结构**：
 ```markdown

@@ -23,8 +23,8 @@ def test_get_subagent_configs():
     config = load_settings()
     subagents = get_subagent_configs(config)
     
-    # Should include direct experts + council
-    assert len(subagents) == 7
+    # Should include direct experts + council + report_synthesizer
+    assert len(subagents) == 8
     
     # Extract names
     names = [_subagent_field(s, "name") for s in subagents]
@@ -108,7 +108,7 @@ def test_query_planner_config():
 
 
 def test_fact_checker_has_search_tool():
-    """Test that fact_checker has internet_search tool."""
+    """Test that fact_checker has verification tools."""
     from src.agent.subagents import get_subagent_configs
     from src.config import load_settings
     from src.tools import internet_search
@@ -119,14 +119,16 @@ def test_fact_checker_has_search_tool():
     # Find fact_checker
     fact_checker = next(s for s in subagents if _subagent_field(s, "name") == "fact_checker")
     
-    # Should have internet_search tool (now checking for tool object)
+    # Should have multiple verification tools
     tools = _subagent_field(fact_checker, "tools")
-    assert len(tools) > 0
-    assert any(tool.name == "internet_search" for tool in tools)
+    tool_names = [tool.name for tool in tools]
+    assert "internet_search" in tool_names
+    assert "search_hackernews" in tool_names
+    assert "fetch_page" in tool_names
 
 
 def test_researcher_has_search_tool():
-    """Test that researcher has internet_search tool."""
+    """Test that researcher has multi-source research tools."""
     from src.agent.subagents import get_subagent_configs
     from src.config import load_settings
     from src.tools import internet_search
@@ -137,10 +139,13 @@ def test_researcher_has_search_tool():
     # Find researcher
     researcher = next(s for s in subagents if _subagent_field(s, "name") == "researcher")
     
-    # Should have internet_search tool (now checking for tool object)
+    # Should have multiple research tools
     tools = _subagent_field(researcher, "tools")
-    assert len(tools) > 0
-    assert any(tool.name == "internet_search" for tool in tools)
+    tool_names = [tool.name for tool in tools]
+    assert "internet_search" in tool_names
+    assert "search_arxiv" in tool_names
+    assert "search_github_repos" in tool_names
+    assert "fetch_page" in tool_names
 
 
 def test_summarizer_no_tools():

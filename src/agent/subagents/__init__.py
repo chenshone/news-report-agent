@@ -1,50 +1,49 @@
-"""SubAgent 配置模块
+"""SubAgent configuration module providing all expert SubAgent creators."""
 
-提供所有专家 SubAgent 的创建函数和统一配置接口。
-
-每个专家一个独立文件：
-- query_planner: 查询规划专家
-- summarizer: 摘要专家
-- fact_checker: 事实核查专家
-- researcher: 背景研究专家
-- impact_assessor: 影响评估专家
-- supervisor: 专家主管
-- council: 专家委员会（封装四阶段流程）
-"""
-
-from typing import Union
+from __future__ import annotations
 
 from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 
 from ...config import AppConfig
-from .query_planner import create_query_planner
-from .summarizer import create_summarizer
-from .fact_checker import create_fact_checker
-from .researcher import create_researcher
-from .impact_assessor import create_impact_assessor
-from .supervisor import create_supervisor
 from .council import create_council
+from .fact_checker import create_fact_checker
+from .impact_assessor import create_impact_assessor
+from .intent_analyzer import create_intent_analyzer
+from .query_planner import create_query_planner
+from .report_synthesizer import create_report_synthesizer
+from .researcher import create_researcher
+from .search_plan_generator import create_search_plan_generator
+from .summarizer import create_summarizer
+from .supervisor import create_supervisor
 
 
 def get_subagent_configs(
     config: AppConfig,
     use_structured_output: bool = True,
     include_direct_experts: bool = True,
-) -> list[Union[SubAgent, CompiledSubAgent]]:
+    include_query_understanding: bool = False,
+) -> list[SubAgent | CompiledSubAgent]:
     """
-    获取所有专家子Agent配置。
-    
+    Get all expert SubAgent configurations.
+
     Args:
-        config: 应用配置，用于获取模型设置
-        use_structured_output: 是否使用结构化输出模式（推荐 True）
-        include_direct_experts: 是否挂载单专家子 Agent（如 summarizer/fact_checker）。
-        
+        config: Application configuration for model settings.
+        use_structured_output: Whether to use Pydantic-based structured output.
+        include_direct_experts: Whether to include individual expert SubAgents.
+        include_query_understanding: Whether to include intent analyzer and search plan generator.
+
     Returns:
-        子Agent配置列表
+        List of configured SubAgents.
     """
-    subagents: list[Union[SubAgent, CompiledSubAgent]] = [
+    subagents: list[SubAgent | CompiledSubAgent] = [
         create_query_planner(config, use_structured_output),
     ]
+
+    if include_query_understanding:
+        subagents.extend([
+            create_intent_analyzer(config),
+            create_search_plan_generator(config),
+        ])
 
     if include_direct_experts:
         subagents.extend([
@@ -53,6 +52,7 @@ def get_subagent_configs(
             create_researcher(config, use_structured_output),
             create_impact_assessor(config, use_structured_output),
             create_supervisor(config, use_structured_output),
+            create_report_synthesizer(config, use_structured_output),
         ])
 
     subagents.append(create_council(config))
@@ -60,14 +60,16 @@ def get_subagent_configs(
 
 
 __all__ = [
-    # Main config function
     "get_subagent_configs",
-    # Individual creators
-    "create_query_planner",
-    "create_summarizer",
-    "create_fact_checker",
-    "create_researcher",
-    "create_impact_assessor",
-    "create_supervisor",
     "create_council",
+    "create_fact_checker",
+    "create_impact_assessor",
+    "create_intent_analyzer",
+    "create_query_planner",
+    "create_report_synthesizer",
+    "create_researcher",
+    "create_search_plan_generator",
+    "create_summarizer",
+    "create_supervisor",
 ]
+

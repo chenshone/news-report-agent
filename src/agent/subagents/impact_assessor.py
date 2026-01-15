@@ -1,7 +1,6 @@
-"""影响评估专家 SubAgent
+"""Impact assessor expert SubAgent for evaluating news implications."""
 
-负责评估短期/长期影响，预测发展趋势。
-"""
+from __future__ import annotations
 
 from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 
@@ -15,19 +14,10 @@ def create_impact_assessor(
     config: AppConfig,
     use_structured_output: bool = True,
 ) -> CompiledSubAgent | SubAgent:
-    """
-    创建影响评估专家 SubAgent
-    
-    Args:
-        config: 应用配置
-        use_structured_output: 是否使用结构化输出
-        
-    Returns:
-        配置好的 SubAgent
-    """
+    """Create impact assessor expert SubAgent."""
     model_config = config.model_for_role("impact_assessor")
     model = create_chat_model(model_config, config)
-    
+
     if use_structured_output:
         return CompiledSubAgent(
             name="impact_assessor",
@@ -38,14 +28,14 @@ def create_impact_assessor(
                 system_prompt=IMPACT_ASSESSOR_PROMPT_STRUCTURED,
             ),
         )
-    else:
-        return SubAgent(
-            name="impact_assessor",
-            description="评估短期/长期影响，预测发展趋势",
-            system_prompt=IMPACT_ASSESSOR_PROMPT,
-            tools=[],
-            model=model,
-        )
+
+    return SubAgent(
+        name="impact_assessor",
+        description="评估短期/长期影响，预测发展趋势",
+        system_prompt=IMPACT_ASSESSOR_PROMPT,
+        tools=[],
+        model=model,
+    )
 
 
 __all__ = ["create_impact_assessor"]

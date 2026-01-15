@@ -1,8 +1,6 @@
-"""专家主管 SubAgent
+"""Expert supervisor SubAgent acting as LLM Council Chairman."""
 
-负责审核各专家分析结果，协调讨论，返回整合结果。
-作为 LLM Council 的 Chairman 角色。
-"""
+from __future__ import annotations
 
 from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 
@@ -16,19 +14,10 @@ def create_supervisor(
     config: AppConfig,
     use_structured_output: bool = True,
 ) -> CompiledSubAgent | SubAgent:
-    """
-    创建专家主管 SubAgent
-    
-    Args:
-        config: 应用配置
-        use_structured_output: 是否使用结构化输出
-        
-    Returns:
-        配置好的 SubAgent
-    """
-    model_config = config.model_for_role("master")  # 主管需要强判断力
+    """Create expert supervisor SubAgent."""
+    model_config = config.model_for_role("master")
     model = create_chat_model(model_config, config)
-    
+
     if use_structured_output:
         return CompiledSubAgent(
             name="expert_supervisor",
@@ -39,14 +28,14 @@ def create_supervisor(
                 system_prompt=EXPERT_SUPERVISOR_PROMPT_STRUCTURED,
             ),
         )
-    else:
-        return SubAgent(
-            name="expert_supervisor",
-            description="审核各专家分析结果，协调讨论，确认最终整合内容",
-            system_prompt=EXPERT_SUPERVISOR_PROMPT,
-            tools=[],
-            model=model,
-        )
+
+    return SubAgent(
+        name="expert_supervisor",
+        description="审核各专家分析结果，协调讨论，确认最终整合内容",
+        system_prompt=EXPERT_SUPERVISOR_PROMPT,
+        tools=[],
+        model=model,
+    )
 
 
 __all__ = ["create_supervisor"]

@@ -1,41 +1,43 @@
-"""事实核查专家 SubAgent
+"""Fact checker expert SubAgent for verifying claims with search tools."""
 
-负责核查关键事实声明的真实性，需要使用搜索工具验证。
-"""
+from __future__ import annotations
 
 from deepagents.middleware.subagents import SubAgent
 
 from ...config import AppConfig, create_chat_model
 from ...prompts import FACT_CHECKER_PROMPT
-from ...tools import internet_search
+from ...tools import (
+    fetch_page,
+    internet_search,
+    search_hackernews,
+)
 
 
 def create_fact_checker(
     config: AppConfig,
-    use_structured_output: bool = True,  # 暂不使用，保留接口一致性
+    use_structured_output: bool = True,
 ) -> SubAgent:
     """
-    创建事实核查专家 SubAgent
-    
-    注意：fact_checker 需要使用工具（internet_search），
-    因此始终使用传统 SubAgent 模式。
-    
-    Args:
-        config: 应用配置
-        use_structured_output: 保留参数，暂不使用
-        
-    Returns:
-        配置好的 SubAgent
+    Create fact checker expert SubAgent.
+
+    Note: Always uses SubAgent mode because it requires tool access.
+    Equipped with multi-source verification tools:
+    - internet_search: General web search
+    - search_hackernews: Search HN discussions for community verification
+    - fetch_page: Fetch original source for verification
     """
     model_config = config.model_for_role("fact_checker")
     model = create_chat_model(model_config, config)
-    
-    # fact_checker 需要工具，使用传统 SubAgent
+
     return SubAgent(
         name="fact_checker",
-        description="核查关键事实声明的真实性，返回结构化核查结果",
+        description="核查关键事实声明的真实性，支持 HN 社区多源验证",
         system_prompt=FACT_CHECKER_PROMPT,
-        tools=[internet_search],
+        tools=[
+            internet_search,
+            search_hackernews,
+            fetch_page,
+        ],
         model=model,
     )
 

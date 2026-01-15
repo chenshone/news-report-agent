@@ -77,9 +77,9 @@ class TestRunAgent:
         }
         mock_create_agent.return_value = mock_agent
         
-        # 运行
-        result = run_agent("test query")
-        
+        # 运行 (run_agent returns tuple: (result, tracer))
+        result, tracer = run_agent("test query")
+
         # 验证
         assert result is not None
         assert "messages" in result

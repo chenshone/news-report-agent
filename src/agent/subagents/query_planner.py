@@ -1,7 +1,6 @@
-"""查询规划专家 SubAgent
+"""Query planner expert SubAgent for generating diverse search queries."""
 
-负责分析用户需求，生成多维度、多样化的搜索查询。
-"""
+from __future__ import annotations
 
 from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 
@@ -15,19 +14,10 @@ def create_query_planner(
     config: AppConfig,
     use_structured_output: bool = True,
 ) -> CompiledSubAgent | SubAgent:
-    """
-    创建查询规划专家 SubAgent
-    
-    Args:
-        config: 应用配置
-        use_structured_output: 是否使用结构化输出
-        
-    Returns:
-        配置好的 SubAgent
-    """
-    model_config = config.model_for_role("master")  # 查询规划需要强推理
+    """Create query planner expert SubAgent."""
+    model_config = config.model_for_role("master")
     model = create_chat_model(model_config, config)
-    
+
     if use_structured_output:
         return CompiledSubAgent(
             name="query_planner",
@@ -38,14 +28,14 @@ def create_query_planner(
                 system_prompt=QUERY_PLANNER_PROMPT_STRUCTURED,
             ),
         )
-    else:
-        return SubAgent(
-            name="query_planner",
-            description="分析用户需求，生成多维度搜索查询，并反思查询质量",
-            system_prompt=QUERY_PLANNER_PROMPT,
-            tools=[],
-            model=model,
-        )
+
+    return SubAgent(
+        name="query_planner",
+        description="分析用户需求，生成多维度搜索查询，并反思查询质量",
+        system_prompt=QUERY_PLANNER_PROMPT,
+        tools=[],
+        model=model,
+    )
 
 
 __all__ = ["create_query_planner"]

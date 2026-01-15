@@ -1,7 +1,6 @@
-"""摘要专家 SubAgent
+"""Summarizer expert SubAgent for extracting news highlights."""
 
-负责提取新闻核心要点，生成结构化摘要。
-"""
+from __future__ import annotations
 
 from deepagents.middleware.subagents import CompiledSubAgent, SubAgent
 
@@ -15,19 +14,10 @@ def create_summarizer(
     config: AppConfig,
     use_structured_output: bool = True,
 ) -> CompiledSubAgent | SubAgent:
-    """
-    创建摘要专家 SubAgent
-    
-    Args:
-        config: 应用配置
-        use_structured_output: 是否使用结构化输出
-        
-    Returns:
-        配置好的 SubAgent
-    """
+    """Create summarizer expert SubAgent."""
     model_config = config.model_for_role("summarizer")
     model = create_chat_model(model_config, config)
-    
+
     if use_structured_output:
         return CompiledSubAgent(
             name="summarizer",
@@ -38,14 +28,14 @@ def create_summarizer(
                 system_prompt=SUMMARIZER_PROMPT_STRUCTURED,
             ),
         )
-    else:
-        return SubAgent(
-            name="summarizer",
-            description="提取新闻核心要点，生成结构化摘要",
-            system_prompt=SUMMARIZER_PROMPT,
-            tools=[],
-            model=model,
-        )
+
+    return SubAgent(
+        name="summarizer",
+        description="提取新闻核心要点，生成结构化摘要",
+        system_prompt=SUMMARIZER_PROMPT,
+        tools=[],
+        model=model,
+    )
 
 
 __all__ = ["create_summarizer"]

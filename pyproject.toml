@@ -18,6 +18,9 @@ dependencies = [
     "httpx>=0.27.0",
     "beautifulsoup4>=4.12.0",
     "lxml>=5.0.0",
+    # 多源信息获取
+    "arxiv>=2.1.0",
+    "feedparser>=6.0.0",
     # 数据处理
     "pydantic>=2.0.0",
     "jinja2>=3.1.0",
@@ -30,6 +33,9 @@ dependencies = [
     "rich>=13.0.0",
     "pyyaml>=6.0.0",
     "loguru>=0.7.3",
+    "uvicorn>=0.40.0",
+    "fastapi>=0.128.0",
+    "sse-starlette>=3.1.2",
 ]
 
 [project.optional-dependencies]

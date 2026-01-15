@@ -17,15 +17,19 @@ from src.config import (
 
 
 def test_load_settings_reads_environment(monkeypatch, tmp_path):
-    monkeypatch.setenv(AZURE_OPENAI_API_KEY_ENV, "az-openai-test")
-    monkeypatch.setenv(AZURE_OPENAI_ENDPOINT_ENV, "https://example.azure.com")
-    monkeypatch.setenv(AZURE_OPENAI_DEPLOYMENT_NAME_ENV, "gpt-4o-azure")
-    monkeypatch.setenv(TAVILY_API_KEY_ENV, "tv-test")
-    monkeypatch.setenv(BRAVE_API_KEY_ENV, "brave-test")
-    monkeypatch.setenv(FIRECRAWL_API_KEY_ENV, "crawl-test")
-    monkeypatch.setenv(FILESYSTEM_BASE_ENV, str(tmp_path))
+    # Use explicit env dict to isolate from real environment
+    test_env = {
+        AZURE_OPENAI_API_KEY_ENV: "az-openai-test",
+        AZURE_OPENAI_ENDPOINT_ENV: "https://example.azure.com",
+        AZURE_OPENAI_DEPLOYMENT_NAME_ENV: "gpt-4o-azure",
+        TAVILY_API_KEY_ENV: "tv-test",
+        BRAVE_API_KEY_ENV: "brave-test",
+        FIRECRAWL_API_KEY_ENV: "crawl-test",
+        FILESYSTEM_BASE_ENV: str(tmp_path),
+        # No Gemini keys - so experts should also use Azure
+    }
 
-    settings = load_settings()
+    settings = load_settings(env=test_env)
 
     assert settings.azure_openai_api_key == "az-openai-test"
     assert settings.azure_openai_endpoint == "https://example.azure.com"

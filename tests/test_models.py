@@ -10,7 +10,7 @@ from src.schemas import (
 
 def test_news_item_round_trip():
     timestamp = datetime(2024, 5, 1, 12, 0, 0)
-    scores = ScoreBreakdown(credibility=0.9, relevance=0.8, heat=0.7)
+    grades = ScoreBreakdown(credibility="A", relevance="B")
     item = NewsItem(
         id="1",
         title="AI breaks new ground",
@@ -19,7 +19,7 @@ def test_news_item_round_trip():
         summary="Summary text",
         content="Full content",
         published_at=timestamp,
-        scores=scores,
+        grades=grades,
         tags=["ai", "innovation"],
         metadata={"region": "global"},
     )
@@ -29,7 +29,7 @@ def test_news_item_round_trip():
 
     assert payload["published_at"] == timestamp.isoformat()
     assert restored.published_at == timestamp
-    assert restored.scores.credibility == 0.9
+    assert restored.grades.credibility == "A"
     assert restored.tags == ["ai", "innovation"]
     assert restored.metadata["region"] == "global"
 
@@ -39,7 +39,7 @@ def test_analysis_result_round_trip():
         news_id="1",
         expert_role="summarizer",
         analysis="Key points",
-        confidence=0.75,
+        confidence_grade="B",
         references=["https://example.com/ref"],
         metadata={"note": "checked"},
     )
@@ -48,7 +48,7 @@ def test_analysis_result_round_trip():
     restored = AnalysisResult.from_dict(payload)
 
     assert restored.expert_role == "summarizer"
-    assert restored.confidence == 0.75
+    assert restored.confidence_grade == "B"
     assert restored.references == ["https://example.com/ref"]
     assert restored.metadata["note"] == "checked"
 
@@ -77,4 +77,4 @@ def test_score_breakdown_default_from_dict():
 
     assert scores.credibility is None
     assert scores.relevance is None
-    assert scores.heat is None
+    assert scores.quality is None

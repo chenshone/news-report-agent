@@ -111,17 +111,44 @@ class SupervisorOutput(BaseModel):
     final_recommendations: str = Field(..., description="最终建议")
 
 
+class InsightItem(BaseModel):
+    """单个洞察项"""
+    insight: str = Field(..., description="核心洞察（一句话）")
+    evidence: List[str] = Field(..., description="支撑该洞察的事实证据")
+    sources: List[str] = Field(default_factory=list, description="来源链接")
+    confidence: Literal["high", "medium", "low"] = Field(..., description="置信度")
+
+
+class ReportSynthesizerOutput(BaseModel):
+    """报告合成专家的结构化输出"""
+    core_insights: List[InsightItem] = Field(
+        ...,
+        description="核心洞察列表（1-3 条）",
+        min_length=1,
+        max_length=3
+    )
+    evidence_summary: str = Field(..., description="证据摘要")
+    short_term_impact: str = Field(..., description="短期影响分析")
+    long_term_impact: str = Field(..., description="长期影响分析")
+    risks_and_uncertainties: List[str] = Field(..., description="风险与不确定性")
+    actionable_recommendations: List[str] = Field(..., description="可执行建议")
+    overall_confidence: GradeType = Field(..., description="整体置信度等级")
+
+
 __all__ = [
     "ExpertReviewItem",
     "FactCheckItem",
     "FactCheckerOutput",
     "ImpactAssessment",
     "ImpactAssessorOutput",
+    "InsightItem",
     "QueryPlannerOutput",
     "QueryPriority",
+    "ReportSynthesizerOutput",
     "ResearcherOutput",
     "SearchQuery",
     "SummaryOutput",
     "SupervisorOutput",
 ]
+
 

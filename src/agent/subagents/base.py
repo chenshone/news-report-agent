@@ -1,7 +1,6 @@
-"""SubAgent 基础工具
+"""SubAgent base utilities for creating structured runnables."""
 
-提供创建 SubAgent 的通用工具函数。
-"""
+from __future__ import annotations
 
 from typing import Any
 
@@ -15,25 +14,25 @@ def create_structured_runnable(
     system_prompt: str,
 ) -> RunnableLambda:
     """
-    创建一个带结构化输出的 Runnable。
-    
-    使用 model.with_structured_output() 确保输出符合 Pydantic schema。
-    
+    Create a Runnable with structured output using Pydantic schema.
+
     Args:
-        model: LangChain 聊天模型
-        output_schema: Pydantic 模型类
-        system_prompt: 系统提示词
-    
+        model: LangChain chat model.
+        output_schema: Pydantic model class for output validation.
+        system_prompt: System prompt for the model.
+
     Returns:
-        可调用的 Runnable
+        A callable Runnable.
     """
     structured_model = model.with_structured_output(output_schema)
-    
+
     def invoke_fn(state: dict, config: RunnableConfig | None = None) -> dict:
         messages = state.get("messages", [])
-        
-        # 构建消息列表
-        full_messages = [{"role": "system", "content": system_prompt}]
+
+        full_messages: list[dict[str, str]] = [
+            {"role": "system", "content": system_prompt}
+        ]
+
         for msg in messages:
             if isinstance(msg, HumanMessage):
                 full_messages.append({"role": "user", "content": msg.content})
@@ -41,23 +40,17 @@ def create_structured_runnable(
                 full_messages.append({"role": "assistant", "content": msg.content})
             elif isinstance(msg, dict):
                 full_messages.append(msg)
-        
-        # 调用模型获取结构化输出
+
         result = structured_model.invoke(full_messages, config=config)
-        
-        # 将 Pydantic 对象转为 JSON 字符串返回
-        if hasattr(result, "model_dump_json"):
-            result_str = result.model_dump_json(indent=2)
-        else:
-            result_str = str(result)
-        
-        return {
-            "messages": [
-                *messages,
-                AIMessage(content=result_str)
-            ]
-        }
-    
+
+        result_str = (
+            result.model_dump_json(indent=2)
+            if hasattr(result, "model_dump_json")
+            else str(result)
+        )
+
+        return {"messages": [*messages, AIMessage(content=result_str)]}
+
     return RunnableLambda(invoke_fn)
 
 
