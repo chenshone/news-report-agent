@@ -1,143 +1,420 @@
-# 热点资讯聚合 Agentic AI
+# News Report Agent
 
-基于 LangGraph + DeepAgents 的多智能体新闻分析系统，自动搜索、筛选、交叉评审并生成 Markdown 格式的热点资讯报告。
+<p align="center">
+  <strong>AI-powered multi-agent news analysis and report generation system</strong>
+</p>
 
-## 功能亮点
-- **四大 Agentic 范式**：规划（write_todos）、反思检查点、工具调用、专家协作。
-- **多专家协作**：查询规划、摘要、事实核查、背景研究、影响评估、专家主管；`expert_council` 负责交叉评审→共识讨论→主管裁决（需先由专家完成独立分析）。
-- **结构化输出**：关键子 Agent 使用 Pydantic schema（`src/schemas/outputs.py`）确保结果可解析，可选纯文本模式。
-- **工具链**：Tavily 搜索、网页抓取（httpx+bs4）、可信度/相关性评估（A/B/C/D 等级制）。
-- **运行体验**：CLI 支持持久化 checkpoint、实时可视化追踪（HTML/JSON 导出）、自定义输出路径。
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#web-ui">Web UI</a> •
+  <a href="#cli">CLI</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#contributing">Contributing</a>
+</p>
 
-## 快速开始
-### 环境要求
+<p align="center">
+  <img src="https://img.shields.io/badge/python-3.11+-blue.svg" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/LangGraph-latest-green.svg" alt="LangGraph">
+  <img src="https://img.shields.io/badge/React-19-61dafb.svg" alt="React 19">
+  <img src="https://img.shields.io/badge/FastAPI-latest-009688.svg" alt="FastAPI">
+  <img src="https://img.shields.io/badge/license-MIT-brightgreen.svg" alt="MIT License">
+</p>
+
+---
+
+## Overview
+
+News Report Agent is a multi-agent AI system built on **LangGraph + DeepAgents** that automatically searches, filters, cross-reviews, and generates comprehensive news analysis reports. Given a query like "What's new in AI today?", it orchestrates multiple expert agents to deliver well-researched, fact-checked reports.
+
+```
+User Query → Query Planning → Multi-round Search → Credibility Filtering
+          → Expert Analysis → Cross-review Council → Markdown Report
+```
+
+## Features
+
+### Four Agentic Paradigms
+- **Planning**: Task decomposition with `write_todos`
+- **Reflection**: Three critical checkpoints for quality assurance
+- **Tool Use**: Rich toolkit for search, scraping, and evaluation
+- **Multi-Agent Collaboration**: 7 specialized expert agents + council
+
+### Expert Agents
+| Agent | Role |
+|-------|------|
+| `query_planner` | Generates 6-10 diverse search queries |
+| `summarizer` | Extracts core points from articles |
+| `fact_checker` | Verifies claims with sources |
+| `researcher` | Provides background context |
+| `impact_assessor` | Evaluates short/long-term impacts |
+| `expert_supervisor` | Arbitrates between experts |
+| `expert_council` | 4-phase cross-review process |
+
+### Tools
+- **Search**: Tavily, arXiv, GitHub, Hacker News, RSS feeds
+- **Scraping**: httpx + BeautifulSoup content extraction
+- **Evaluation**: Credibility & relevance grading (A/B/C/D)
+
+### Interfaces
+- **Web UI**: React frontend with real-time streaming progress
+- **CLI**: Full-featured command line with checkpointing & tracing
+
+---
+
+## Quick Start
+
+### Prerequisites
 - Python 3.11+
-- [uv](https://github.com/astral-sh/uv)（推荐）或 pip
+- [uv](https://github.com/astral-sh/uv) (recommended) or pip
+- Node.js 18+ (for Web UI)
 
-### 安装与配置
+### Installation
+
 ```bash
-# 获取代码
+# Clone the repository
 git clone https://github.com/yourusername/news-report-agent.git
 cd news-report-agent
 
-# 安装依赖（推荐）
+# Install Python dependencies
 uv sync
 
-# 准备配置
+# Configure environment
 cp env.example .env
-# 至少设置：OPENAI_API_KEY 或 Azure 组合，TAVILY_API_KEY
-# 可选：GEMINI_KEY + MODEL_GEMINI_3_FLASH（专家用 Gemini），NEWS_AGENT_FS_BASE=./data
-```
+# Edit .env with your API keys (see Configuration section)
 
-### 验证环境
-```bash
+# Verify setup
 uv run python check_env.py
-# 可选：快速跑一次测试（无真实 key 会跳过部分用例）
-uv run pytest tests/ -v
 ```
 
-## 使用说明
-### 命令行（推荐）
+### Configuration
+
+Create a `.env` file with the following:
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `OPENAI_API_KEY` | OpenAI API Key | One of OpenAI/Azure |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI Key | One of OpenAI/Azure |
+| `AZURE_OPENAI_ENDPOINT` | Azure endpoint URL | With Azure key |
+| `AZURE_OPENAI_DEPLOYMENT_NAME` | Azure deployment | With Azure key |
+| `TAVILY_API_KEY` | Tavily search API | **Yes** |
+| `GEMINI_KEY` | Google Gemini (for experts) | Optional |
+| `NEWS_AGENT_FS_BASE` | Data directory | Optional (default: `./data`) |
+
+---
+
+## Web UI
+
+The Web UI provides a modern, Apple-style interface with real-time streaming progress.
+
+### Starting the Servers
+
+**Option 1: Using start scripts**
 ```bash
-# 基础查询
-uv run python -m cli.main "今天AI领域有什么进展"
+# Terminal 1: Start backend (FastAPI on port 8000)
+./start-backend.sh
 
-# 指定领域 / 输出文件 / 详细日志
-uv run python -m cli.main --domain technology --output ./reports/today.md "最新科技新闻"
-uv run python -m cli.main --verbose "分析特斯拉股价"
-
-# 持久化 checkpoint（SQLite，默认 ${NEWS_AGENT_FS_BASE:-./data}/checkpoints/agent_state.db）
-uv run python -m cli.main --checkpoint --thread-id daily-ai "今天AI领域有什么进展"
-# 未提供 --thread-id 时会基于查询自动生成哈希，便于同主题续跑
-
-# 可视化追踪（终端实时 + 导出 HTML/JSON）
-uv run python -m cli.main --trace --trace-output ./reports/trace.html "分析 Sora 最新更新"
-uv run python -m cli.main --trace --trace-input --trace-output-detail "今天科技圈有什么重要进展"
-
-# 安装的可执行脚本
-uv run news-agent "今天有什么AI新闻"
+# Terminal 2: Start frontend (React/Vite on port 5173)
+./start-frontend.sh
 ```
-> 注意：`--model` 参数当前预留，实际模型切换请通过环境变量/配置完成。
+
+**Option 2: Manual start**
+```bash
+# Backend
+uv run uvicorn webui.backend.main:app --reload --port 8000
+
+# Frontend
+cd webui/frontend
+npm install
+npm run dev
+```
+
+### User Flow
+
+The Web UI uses a **two-phase confirmation flow**:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  Phase 1: Query Input                                           │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  "What's new in AI today?"                    [Analyze]   │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              ↓                                  │
+│  Phase 2: Review & Confirm Search Plan                          │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  Intent Analysis:                                          │  │
+│  │   • Understood query: Latest AI developments               │  │
+│  │   • Time range: Past 7 days                                │  │
+│  │   • Domain: Artificial Intelligence                        │  │
+│  │   • Interests: [x] Tech breakthroughs  [x] Product launches│  │
+│  │                                                            │  │
+│  │  Search Plan:                                              │  │
+│  │   • Tavily: "AI latest news December 2024"                 │  │
+│  │   • arXiv: "artificial intelligence recent papers"         │  │
+│  │   • GitHub: trending AI repositories                       │  │
+│  │                                                            │  │
+│  │  Exclude topics: [already known content]                   │  │
+│  │  Additional context: [optional notes]                      │  │
+│  │                                                            │  │
+│  │                              [Cancel]  [Confirm & Execute] │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              ↓                                  │
+│  Phase 3: Real-time Streaming Progress                          │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  🚀 Analysis started                           10:30:01   │  │
+│  │  🔍 Web search: "AI latest news"               10:30:02   │  │
+│  │  ✅ Search completed                           10:30:05   │  │
+│  │  👤 summarizer: Extracting key points...       10:30:06   │  │
+│  │  👤 fact_checker: Verifying claims...          10:30:08   │  │
+│  │  👤 researcher: Gathering background...        10:30:10   │  │
+│  │  ...                                                       │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                              ↓                                  │
+│  Phase 4: View Report                                           │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │  📰 News Analysis Report                                   │  │
+│  │  ─────────────────────────────────────────                 │  │
+│  │  [Rendered HTML report with insights, facts, impacts]     │  │
+│  │                                                            │  │
+│  │                           [Download PDF]  [New Query]      │  │
+│  └───────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/analyze/prepare` | POST | Phase 1: Analyze intent, return search plan |
+| `/api/analyze/execute` | POST | Phase 2: Execute with user confirmation |
+| `/api/stream/{task_id}` | GET | SSE stream for real-time progress |
+| `/api/task/{task_id}` | GET | Get task status |
+| `/api/report/{task_id}` | GET | Get HTML report |
+| `/api/analyze` | POST | Quick mode (skip confirmation) |
+
+### Frontend Components
+
+| Component | Purpose |
+|-----------|---------|
+| `QueryInput.jsx` | Query input form |
+| `QueryConfirmation.jsx` | Search plan review & adjustment |
+| `StreamingProgress.jsx` | Real-time progress display |
+| `ReportViewer.jsx` | Report viewing & PDF export |
+
+---
+
+## CLI
+
+The CLI provides full control with checkpointing and tracing capabilities.
+
+### Basic Usage
+
+```bash
+# Simple query
+uv run python -m cli.main "What's new in AI today?"
+
+# With domain filter
+uv run python -m cli.main --domain technology "Latest tech news"
+
+# Save report to file
+uv run python -m cli.main --output ./reports/today.md "AI developments"
+
+# Verbose logging
+uv run python -m cli.main --verbose "Tesla stock analysis"
+```
+
+### Advanced Features
+
+```bash
+# Enable checkpointing (resume sessions)
+uv run python -m cli.main --checkpoint --thread-id daily-ai "AI news"
+
+# Visual tracing (real-time + HTML export)
+uv run python -m cli.main --trace --trace-output ./trace.html "Analysis"
+
+# Full tracing with input/output details
+uv run python -m cli.main --trace --trace-input --trace-output-detail "Query"
+```
+
+### CLI Options
+
+| Option | Description |
+|--------|-------------|
+| `query` | The query to analyze (required) |
+| `--domain` | Limit to domain: technology, finance, science, etc. |
+| `--output, -o` | Save Markdown report to file |
+| `--verbose, -v` | Show detailed logs |
+| `--model` | Override default model |
+| `--checkpoint` | Enable SQLite state persistence |
+| `--checkpoint-dir` | Checkpoint storage directory |
+| `--thread-id` | Session ID for resuming |
+| `--trace, -t` | Enable visual tracing |
+| `--trace-output` | Save trace to HTML/JSON |
+| `--trace-input` | Show tool input details |
+| `--trace-output-detail` | Show tool output details |
 
 ### Python API
+
 ```python
 from src.agent import create_news_agent, create_news_agent_with_checkpointing
 
+# Basic usage
 agent = create_news_agent()
-result = agent.invoke({"messages": [{"role": "user", "content": "分析今天AI热点"}]})
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "Analyze today's AI news"}]
+})
 print(result["messages"][-1].content)
 
-# 启用 checkpoint（可跨多次运行复用状态）
-agent_ckpt = create_news_agent_with_checkpointing(thread_id="daily-ai")
-ag_result = agent_ckpt.invoke({"messages": [{"role": "user", "content": "复盘昨日科技要闻"}]})
+# With checkpointing
+agent = create_news_agent_with_checkpointing(thread_id="daily-ai")
+result = agent.invoke({
+    "messages": [{"role": "user", "content": "Continue yesterday's analysis"}]
+})
 ```
 
-## 架构与组件
-- **MasterAgent**（`src/agent/master.py`）：基于 `create_deep_agent`，加载 `src/prompts/master.py`，执行规划/反思/工具调用，注入当前日期时间。
-- **子 Agent（`src/agent/subagents/`）**：
-  - `query_planner`（`QueryPlannerOutput`）
-  - `summarizer`（`SummaryOutput`）
-  - `fact_checker`（使用 `internet_search`）
-  - `researcher`（使用 `internet_search`）
-  - `impact_assessor`（`ImpactAssessorOutput`）
-  - `expert_supervisor`（`SupervisorOutput`）
-  - `expert_council`（接收专家输出，执行交叉评审→共识讨论→主管裁决）
-- **交叉评审矩阵**：`src/agent/council/matrix.py` 定义 reviewer/被评审者关系与维度。
-- **工具**（`src/tools/`）：`internet_search`(Tavily)、`fetch_page`/`fetch_page_async`、`evaluate_credibility`、`evaluate_relevance`（A/B/C/D）。
-- **提示词与模板**：`src/prompts/` 存放系统/专家 prompt；`src/utils/templates.py` 生成 Markdown 报告与终端输出。
-- **追踪与回调**：`src/utils/tracer.py` 提供事件追踪、Rich 终端可视化、HTML/JSON 导出；`src/utils/callbacks.py` 提供默认日志回调。
+---
 
-### 目录结构
+## Architecture
+
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            MasterAgent                                   │
+│                     (LangGraph + DeepAgents)                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │
+│  │   Tools     │  │  Subagents  │  │   Council   │  │   Prompts   │    │
+│  ├─────────────┤  ├─────────────┤  ├─────────────┤  ├─────────────┤    │
+│  │ • search    │  │ • planner   │  │ • cross-    │  │ • master    │    │
+│  │ • fetch     │  │ • summarize │  │   review    │  │ • experts   │    │
+│  │ • evaluate  │  │ • fact_check│  │ • consensus │  │             │    │
+│  │ • arxiv     │  │ • research  │  │ • synthesis │  │             │    │
+│  │ • github    │  │ • impact    │  │             │  │             │    │
+│  │ • hackernews│  │ • supervise │  │             │  │             │    │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────┘    │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Directory Structure
+
 ```
 news-report-agent/
-├── cli/main.py                # CLI 入口（trace / checkpoint / 输出路径）
+├── cli/                      # CLI entry point
+│   └── main.py
+├── webui/                    # Web UI
+│   ├── backend/              # FastAPI server
+│   │   ├── main.py           # API endpoints
+│   │   └── sse_handler.py    # SSE callback handler
+│   └── frontend/             # React app
+│       └── src/
+│           ├── App.jsx
+│           └── components/
 ├── src/
-│   ├── agent/                 # Master + SubAgents + Council
+│   ├── agent/                # Agent implementations
+│   │   ├── master.py         # MasterAgent orchestration
+│   │   ├── subagents/        # Expert agents
+│   │   │   ├── query_planner.py
+│   │   │   ├── summarizer.py
+│   │   │   ├── fact_checker.py
+│   │   │   ├── researcher.py
+│   │   │   ├── impact_assessor.py
+│   │   │   ├── expert_supervisor.py
+│   │   │   ├── intent_analyzer.py      # WebUI Phase 1
+│   │   │   └── search_plan_generator.py # WebUI Phase 1
+│   │   └── council/          # Expert council
+│   │       └── matrix.py     # Cross-review matrix
+│   ├── prompts/              # System prompts
 │   │   ├── master.py
-│   │   ├── subagents/         # 各专家 & expert_council
-│   │   └── council/           # 交叉评审矩阵等
-│   ├── prompts/               # master/experts 提示词
-│   ├── tools/                 # 搜索、抓取、评估工具
-│   ├── schemas/               # 基础与结构化输出模型
-│   └── utils/                 # 日志、回调、追踪、报告模板
-├── tests/                     # 单元/集成测试（见 TESTING_GUIDE.md）
-├── docs/                      # 设计文档（如 EXPERT_COUNCIL_DESIGN）
-├── reports/                   # 示例/输出目录
-├── data/                      # 默认持久化目录（NEWS_AGENT_FS_BASE）
-├── AGENTS.md                  # 贡献者指南
-└── TESTING_GUIDE.md           # 测试策略与命令
+│   │   └── experts.py
+│   ├── tools/                # Tool implementations
+│   │   ├── search.py         # Tavily search
+│   │   ├── scraper.py        # Web scraping
+│   │   ├── evaluator.py      # Credibility/relevance
+│   │   └── sources/          # Multi-source tools
+│   │       ├── arxiv.py
+│   │       ├── github.py
+│   │       ├── hackernews.py
+│   │       └── rss.py
+│   ├── schemas/              # Pydantic models
+│   │   ├── base.py
+│   │   └── outputs.py
+│   ├── config.py             # Configuration loader
+│   └── utils/                # Utilities
+│       ├── tracer.py         # Execution tracing
+│       ├── callbacks.py      # LangChain callbacks
+│       └── templates.py      # Report formatting
+├── tests/                    # Test suite
+├── docs/                     # Documentation
+├── data/                     # Default data directory
+├── start-backend.sh          # Backend start script
+├── start-frontend.sh         # Frontend start script
+└── pyproject.toml
 ```
 
-## 配置说明
-| 变量名 | 说明 | 必需 |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | OpenAI API Key | 二选一（与 Azure） |
-| `AZURE_OPENAI_API_KEY` / `AZURE_OPENAI_ENDPOINT` / `AZURE_OPENAI_DEPLOYMENT_NAME` | Azure OpenAI 配置 | 二选一（与 OpenAI） |
-| `GEMINI_KEY` / `MODEL_GEMINI_3_FLASH` | 使用 Google Gemini 作为专家模型（Master 仍用 OpenAI/Azure） | 可选 |
-| `TAVILY_API_KEY` | Tavily 搜索 | ✅ |
-| `BRAVE_API_KEY`, `FIRECRAWL_API_KEY` | 预留的搜索/抓取备用 Key | 可选 |
-| `NEWS_AGENT_FS_BASE` | 文件系统根目录，包含 checkpoints/reports 等 | 可选（默认 `./data`） |
+### Expert Council Process
 
-配置规则：若提供 Azure 配置，则 Master/专家默认使用 Azure；若额外提供 Gemini 配置，专家角色切换到 Gemini，Master 仍使用 OpenAI/Azure。
+The council implements a 4-phase cross-review process:
 
-## 追踪与持久化
-- `--checkpoint`：启用 SQLite checkpointer（`<NEWS_AGENT_FS_BASE>/checkpoints/agent_state.db`），可通过 `--thread-id` 控制会话隔离。
-- `--trace`：终端实时树状可视化；`--trace-output` 支持 `.html` 或 `.json`，若目录不存在会自动创建；`--trace-input/--trace-output-detail` 控制输入输出详情。
+1. **Independent Analysis**: Experts complete their analyses
+2. **Cross-Review**: Experts review each other based on the review matrix
+3. **Consensus Discussion**: Address conflicts (C/D grades)
+4. **Chairman Synthesis**: Final integrated verdict
 
-## 测试
-- 快速运行：`uv run pytest tests/ -v`
-- 集成测试（需要真实 API keys）：`uv run pytest tests/ -v --run-integration`
-- 覆盖率：`uv run pytest tests/ --cov=src --cov-report=html`，查看 `htmlcov/index.html`
-- `skip_if_no_api_key` 会在缺少 `OPENAI_API_KEY`/Azure 与 `TAVILY_API_KEY` 时跳过相关用例；尽量使用轻量模型与短提示降低成本。
+Review dimensions: accuracy, completeness, consistency, evidence, logic
 
-## 进一步阅读
-- `docs/PROJECT_GUIDE.md`：当前项目解读（建议从这里开始）
-- `docs/reference/AGENT_FLOW.md`：端到端运行流程
-- `docs/reference/DATETIME_CONTEXT.md`：时间上下文注入规则
-- `docs/EXPERT_COUNCIL_DESIGN.md`：专家委员会机制（先专家分析，再 council 裁决）
-- `docs/archive/`：历史阶段/旧设计文档（可能过时）
-- `AGENTS.md`：贡献者指南与提交规范
-- `TESTING_GUIDE.md`：测试策略与示例
+---
 
-## 贡献与许可证
-欢迎提交 Issue/PR，提交前请阅读 `AGENTS.md` 并附上关键测试命令。项目使用 MIT License。
+## Testing
+
+```bash
+# Run all tests
+uv run pytest tests/ -v
+
+# Integration tests (requires API keys)
+uv run pytest tests/ -v --run-integration
+
+# Coverage report
+uv run pytest tests/ --cov=src --cov-report=html
+```
+
+Tests use `skip_if_no_api_key` fixture to skip when API keys are unavailable.
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| `docs/PROJECT_GUIDE.md` | Project walkthrough |
+| `docs/reference/AGENT_FLOW.md` | End-to-end execution flow |
+| `docs/reference/DATETIME_CONTEXT.md` | Time context injection |
+| `docs/EXPERT_COUNCIL_DESIGN.md` | Council mechanism design |
+| `TESTING_GUIDE.md` | Testing strategy |
+| `AGENTS.md` | Contributor guide |
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read `AGENTS.md` for guidelines.
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+<p align="center">
+  Made with LangGraph, DeepAgents, React, and FastAPI
+</p>

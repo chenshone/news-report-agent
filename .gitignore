@@ -14,3 +14,5 @@ wheels/
 
 reports/
 data/
+
+.pytest_cache/
